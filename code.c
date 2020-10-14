@@ -80,11 +80,10 @@ void S(int p, int m, char *d) {
 
         processors[i].request = rand() % m;
         processors[i].granted++;
-        processors[i].cumulative_average = processors[i].granted / (c + 1.0);
+        processors[i].cumulative_average = processors[i].granted / (c + 1.0); //use accesors
 
         fulfilled[f_counter] = processors[i];
         f_counter++;
-        //granted ++;
       } else {
         processors[i].access_counter ++;
         unfulfilled[u_counter] = processors[i];
@@ -161,14 +160,18 @@ void merge_arrays(
   struct processor b[],
   struct processor processors[]) {
   int j = 0;
-  for(int i = 0; i < u; i ++) {
-    processors[j] = a[i];
-    j++;
-  }
+  if (u + f == p) {
+    for(int i = 0; i < u; i ++) {
+      processors[j] = a[i];
+      j++;
+    }
 
-  for(int i = 0; i < f; i++) {
-    processors[j] = b[i];
-    j++;
+    for(int i = 0; i < f; i++) {
+      processors[j] = b[i];
+      j++;
+    }
+  } else {
+    exit(1);
   }
 }
 
