@@ -20,7 +20,7 @@ struct processor {
 void S(int, int, char*);
 void uniform_distribution(int[], int, int);
 void initialize_memory_modules(struct memory_module[], int);
-void initialize_acp(struct processor[], int);
+void initialize_acg(struct processor[], int);
 void uniform(struct processor[], int, int);
 void merge_arrays(int, int, int, struct processor[], struct processor[], struct processor[]);
 
@@ -58,7 +58,7 @@ void S(int p, int m, char *d) {
   struct memory_module m_modules[m];
 
   initialize_memory_modules(m_modules, m);
-  initialize_acp(processors, p);
+  initialize_acg(processors, p);
   uniform(processors, p, m);
   /*for(int i = 0; i < p; i++) {
     printf("%i ", processors[i].access_counter);
