@@ -1,2 +1,6 @@
 # Ignore build directory
 bin/
+.vscode/
+a.out
+code
+code.dSYM/
