@@ -4,3 +4,4 @@ bin/
 a.out
 code
 code.dSYM/
+*.txt
