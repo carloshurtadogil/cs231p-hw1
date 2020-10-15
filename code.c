@@ -20,19 +20,14 @@ struct processor {
 };
 
 /* FUNCTION DECLARATIONS */
-void S(int, int, char*);
-void uniform_distribution(int[], int, int);
+void S(int, int, char);
 void initialize_memory_modules(struct memory_module[], int);
 void initialize_acg(struct processor[], int);
 void uniform(struct processor[], int, int);
+void normal(struct processor[], int, int);
+double get_normal_value(int, double);
 void merge_arrays(int, int, int, struct processor[], struct processor[], struct processor[]);
-
-void print_p (struct processor p) {
-  printf("request: %i\n", p.request);
-  printf("access: %i\n", p.access_counter);
-  printf("priority: %i\n", p.priority);
-}
-
+ 
 /**
  * MAIN FUNCTION
  * @param[in] argc The total amount of arguments passed
@@ -40,7 +35,7 @@ void print_p (struct processor p) {
 */
 int main(int argc, char *argv[]) {
   int p = atoi(argv[1]); /* the number of processors to simulate */
-  char *d = argv[2]; /* the distribution of the memory requests */
+  char d = argv[2][0]; /* the distribution of the memory requests */
   for(int m = 1; m <= MAX_MODULES; m++) {
     S(p, m, d);
   }
@@ -56,17 +51,14 @@ void print_array(int array[], int length) {
 
 /* FUNCTIONS */
 
-void S(int p, int m, char *d) {
+void S(int p, int m, char d) {
   struct processor processors[p];
   struct memory_module m_modules[m];
 
   initialize_memory_modules(m_modules, m);
   initialize_acg(processors, p);
   uniform(processors, p, m);
-  /*for(int i = 0; i < p; i++) {
-    printf("%i ", processors[i].access_counter);
-  }*/
-  //printf("\n");
+  
   int selected_module;
   int f_counter;
   int u_counter;
@@ -83,7 +75,14 @@ void S(int p, int m, char *d) {
       if(m_modules[selected_module].free == 0) {
         m_modules[selected_module].free = 1;
 
-        processors[i].request = rand() % m;
+        if (d == 'u')
+          processors[i].request = rand() % m;
+        else {
+          int prev = processors[i].request;
+          double normal_value = get_normal_value(prev, m / 6.0);
+          processors[i].request = abs((int)round(normal_value) % m);
+        }
+        
         processors[i].granted++;
         processors[i].cumulative_average = (c + 1) / processors[i].granted;
 
@@ -105,8 +104,12 @@ void S(int p, int m, char *d) {
     }
     avg_cum /= p;
     --avg_cum; 
+    if (avg_cum == 0) {
+      int i = 1 + 1;
+    }
     if (c > MIN_CYLCES) {
-      double diff = abs(1 - (prev_avg_cum / avg_cum));
+      double ratio = prev_avg_cum / avg_cum;
+      double diff = fabs(1.0 - ratio);
       if (diff < DELTA)
         break;
     }
@@ -208,18 +211,18 @@ void uniform(struct processor processors[], int p, int m) {
   //printf("\n results in \n");
 }
 
-void normal(struct processor processors[], int p, int m) {
-  srand(time(NULL)); /* use a new seed to help with randomizing */
-  for(int i = 0; i < p; i++) {
-    double v = getNormalValue();
-    int s = (int)round(v) % m;
-    processors[i].request = s; /* randomly select a memory module and assign  */
-    //printf("%i ", s);
-  }
-}
+// void normal(struct processor processors[], int p, int m) {
+//   srand(time(NULL)); /* use a new seed to help with randomizing */
+//   for(int i = 0; i < p; i++) {
+//     double v = get_normal_value();
+//     int s = (int)round(v) % m;
+//     processors[i].request = s; /* randomly select a memory module and assign  */
+//     //printf("%i ", s);
+//   }
+// }
 
-
-double getNormalValue() {
+// to adjust to another distribution get_normal_value() * std_dev + mean
+double get_normal_value(int mean, double std_dev) {
   static double value_1, value_2, S;
   static int phase = 0;
   double X;
@@ -238,5 +241,5 @@ double getNormalValue() {
 
   phase = 1 - phase;
 
-  return X;
+  return X * std_dev + mean;
 }
