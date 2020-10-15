@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 /* CONSTANTS */
 #define MAX_CYCLES 100000 /* maximum amount of memory cycles */
+#define MIN_CYLCES 5000 /* minimum cycles before we can short circut by delta */
 #define MAX_MODULES 2048 /* maximum amount of memory modules for the simulation */
+#define DELTA 0.0001
 
 /* STRUCTS */
 struct memory_module {
@@ -67,6 +70,8 @@ void S(int p, int m, char *d) {
   int selected_module;
   int f_counter;
   int u_counter;
+  double avg_cum = 0.0;
+  double prev_avg_cum = 0.0;
 
   for(int c = 0; c < MAX_CYCLES; c++) {
     struct processor fulfilled[p];
@@ -91,6 +96,22 @@ void S(int p, int m, char *d) {
       }
     }
 
+        
+    // Check if we exit because the value has settled
+    avg_cum = 0.0;
+    for(int i = 0; i < p; i++) {
+      //printf("Processor %i: %f\n", i, processors[i].cumulative_average);
+      avg_cum += processors[i].cumulative_average;
+    }
+    avg_cum /= p;
+    --avg_cum; 
+    if (c > MIN_CYLCES) {
+      double diff = abs(1 - (prev_avg_cum / avg_cum));
+      if (diff < DELTA)
+        break;
+    }
+    prev_avg_cum = avg_cum;
+
     merge_arrays(
       u_counter,
       f_counter,
@@ -101,16 +122,8 @@ void S(int p, int m, char *d) {
     initialize_memory_modules(m_modules, m);
   }
 
-  //printf("\n");
-
-  double avg_cum = 0.0;
-  for(int i = 0; i < p; i++) {
-    //printf("Processor %i: %f\n", i, processors[i].cumulative_average);
-    avg_cum += processors[i].cumulative_average;
-  }
-  avg_cum /= p;
-  --avg_cum; 
-  printf("%i Final: %f\n", m, avg_cum);
+  printf("%0.4f\n", avg_cum);
+  
 }
 
 
@@ -137,6 +150,7 @@ void initialize_acg(struct processor processors[], int p) {
   for(int i = 0; i < p; i++) {
     processors[i].access_counter = 0;
     processors[i].granted = 0.0;
+    processors[i].cumulative_average = 0.0;
   }
 }
 
@@ -192,4 +206,37 @@ void uniform(struct processor processors[], int p, int m) {
     //printf("%i ", s);
   }
   //printf("\n results in \n");
+}
+
+void normal(struct processor processors[], int p, int m) {
+  srand(time(NULL)); /* use a new seed to help with randomizing */
+  for(int i = 0; i < p; i++) {
+    double v = getNormalValue();
+    int s = (int)round(v) % m;
+    processors[i].request = s; /* randomly select a memory module and assign  */
+    //printf("%i ", s);
+  }
+}
+
+
+double getNormalValue() {
+  static double value_1, value_2, S;
+  static int phase = 0;
+  double X;
+  
+  if (phase == 0) {
+    do {
+      double d1 = (double)rand() / RAND_MAX;
+      double d2 = (double)rand() / RAND_MAX;
+      value_1 = 2 * d1 - 1;
+      value_2 = 2 * d2 - 1;
+      S = value_1 * value_1 + value_2 * value_2;
+    } while(S >= 1 || S == 0);
+    X = value_1 * sqrt(-2 * log(S) / S);
+  } else 
+    X = value_2 * sqrt(-2 * log(S) / S);
+
+  phase = 1 - phase;
+
+  return X;
 }
