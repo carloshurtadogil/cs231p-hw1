@@ -3,7 +3,7 @@
 #include <time.h>
 
 /* CONSTANTS */
-#define MAX_CYCLES 1000000 /* maximum amount of memory cycles */
+#define MAX_CYCLES 100000 /* maximum amount of memory cycles */
 #define MAX_MODULES 2048 /* maximum amount of memory modules for the simulation */
 
 /* STRUCTS */
@@ -80,12 +80,12 @@ void S(int p, int m, char *d) {
 
         processors[i].request = rand() % m;
         processors[i].granted++;
-        processors[i].cumulative_average = processors[i].granted / (c + 1.0); //use accesors
+        processors[i].cumulative_average = (c + 1) / processors[i].granted;
 
         fulfilled[f_counter] = processors[i];
         f_counter++;
       } else {
-        processors[i].access_counter ++;
+        processors[i].access_counter++;
         unfulfilled[u_counter] = processors[i];
         u_counter++;
       }
@@ -109,6 +109,7 @@ void S(int p, int m, char *d) {
     avg_cum += processors[i].cumulative_average;
   }
   avg_cum /= p;
+  --avg_cum; 
   printf("%i Final: %f\n", m, avg_cum);
 }
 
