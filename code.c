@@ -4,19 +4,29 @@
 #include <math.h>
 
 /* CONSTANTS */
-#define MAX_CYCLES 100000 /* maximum amount of memory cycles */
+#define MAX_CYCLES 1000000 /* maximum amount of memory cycles */
 #define MIN_CYLCES 5000 /* minimum cycles before we can short circut by delta */
 #define MAX_MODULES 2048 /* maximum amount of memory modules for the simulation */
 #define DELTA 0.0001
 
 /* STRUCTS */
+
+/** 
+ * Defines a memory module and its status as either
+ * free (0) or not (1)
+*/
 typedef struct memory_module {
   int free;
 } memory_module;
 
+/**
+ * Defines the anatomy of a mock processor for
+ * this assignment
+*/
 typedef struct processor {
-  int request, access_counter, priority;
-  double cumulative_average, granted;
+  int request, access_counter;
+  double cumulative_average;
+  double granted; // the amount of times a processor was granted access to its requested memory module
 } processor;
 
 /* FUNCTION DECLARATIONS */
@@ -27,6 +37,8 @@ void uniform(processor[], int, int);
 double get_normal_value(int, double);
 void merge_arrays(int, int, int, processor[],  processor[], processor[]);
  
+/* FUNCTIONS */
+
 /**
  * MAIN FUNCTION
  * @param[in] argc The total amount of arguments passed
@@ -40,89 +52,94 @@ int main(int argc, char *argv[]) {
   }
 }
 
-void print_array(int array[], int length) {
-  for(int i = 0; i < length; i ++) {
-    printf("%i ", array[i]);
-  }
-  printf("\n");
-}
-
-
-/* FUNCTIONS */
-
+/**
+ * Function to run a simulation a given amount of processors to generate
+ * and carry out requests to a given amount of memory modules for a 
+ * given amount of cycles. Prints out the last arithmetic average of
+ * all processors' time cumulative averages.
+ * 
+ * @param[in] p The amount of processors that will generate a request
+ * @param[in] m The amount of memory modules available for the simulation
+ * @param[in] d Char that specifies the distribution of memory requests
+*/
 void S(int p, int m, char d) {
-  processor processors[p];
-  memory_module m_modules[m];
+  processor processors[p]; // create array of processors
+  memory_module m_modules[m]; // create array of memory modules
 
-  initialize_memory_modules(m_modules, m);
-  initialize_acg(processors, p);
-  uniform(processors, p, m);
+  initialize_memory_modules(m_modules, m); // initialize each memory module
+  initialize_acg(processors, p); // initialize  each processor
+  uniform(processors, p, m); // set the request value of each processor via uniform distribution
   
-  int selected_module;
-  int f_counter;
-  int u_counter;
-  double avg_cum = 0.0;
-  double prev_avg_cum = 0.0;
+  int selected_module; // the module that is selected for each processor
+  int f_counter; // index counter for processors that are to be placed in fulfilled array
+  int u_counter; // index counter for processors that are to be placed in unfullfilled array
+  double w_bar = 0.0; // arithmetic average of all processors' time cumulative averages
+  double prev_w_bar = 0.0; // w_bar of the cycle c - 1
 
-  for(int c = 0; c < MAX_CYCLES; c++) {
-    processor fulfilled[p];
-    processor unfulfilled[p];
+  for(int c = 0; c < MAX_CYCLES; c++) { // for every cycle
+    processor fulfilled[p]; // array of processors that do not have to wait this cycle (will assume lower priority for next cycle)
+    processor unfulfilled[p]; // array of processors that have to wait this cycle (will assume higher priority for next cycle)
     f_counter = 0;
     u_counter = 0;
-    for(int i = 0; i < p; i ++) {
-      selected_module = processors[i].request;
-      if(m_modules[selected_module].free == 0) {
-        m_modules[selected_module].free = 1;
 
-        if (d == 'u')
+    for(int i = 0; i < p; i ++) { // for every processor in processors array
+      selected_module = processors[i].request; // set index of p[i]'s requested memory module
+
+      if(m_modules[selected_module].free == 0) { // if memory module is available
+        m_modules[selected_module].free = 1; // flag memory module as unavailable
+
+        // distribute the processor's next request based on value d
+        if (d == 'u') // uniform distribution
           processors[i].request = rand() % m;
-        else {
+        else { // normal distribution 
           int prev = processors[i].request;
           double normal_value = get_normal_value(prev, m / 6.0);
           processors[i].request = abs((int)round(normal_value) % m);
         }
         
         processors[i].granted++;
-        processors[i].cumulative_average = (c + 1) / processors[i].granted;
+        processors[i].cumulative_average = (c + 1) / processors[i].granted; // calculate the cumulative average for p for this cycle
 
-        fulfilled[f_counter] = processors[i];
-        f_counter++;
-      } else {
-        processors[i].access_counter++;
-        unfulfilled[u_counter] = processors[i];
-        u_counter++;
+        fulfilled[f_counter] = processors[i]; // add processor to fulfilled array
+        f_counter++; // increase counter
+      } else { // if memory module was not available this cycle
+        processors[i].access_counter++; // increase the amount of cycles processor p had to wait
+        unfulfilled[u_counter] = processors[i]; // add processor to unfulfilled array
+        u_counter++; //increase counter
       }
     }
 
-        
-    // Check if we exit because the value has settled
-    avg_cum = 0.0;
+    w_bar = 0.0; // reset w_bar
     for(int i = 0; i < p; i++) {
-      avg_cum += processors[i].cumulative_average;
+      w_bar += processors[i].cumulative_average; // calculate the cumulative averages for this cycle
     }
-    avg_cum /= p;
-    --avg_cum; 
+    w_bar /= p;
+    --w_bar; 
 
+    /**
+     * end the simulation early when the absolute value of the difference of 1
+     * and (prev_w_bar and w_bar) is less than tolerance DELTA
+    */
     if (c > MIN_CYLCES) {
-      double ratio = prev_avg_cum / avg_cum;
+      double ratio = prev_w_bar / w_bar;
       double diff = fabs(1.0 - ratio);
       if (diff < DELTA)
         break;
     }
-    prev_avg_cum = avg_cum;
+    prev_w_bar = w_bar;
 
+    // merge arrays unfulfilled and fulfilled
     merge_arrays(
       u_counter,
       f_counter,
       p,
-      unfulfilled,
-      fulfilled,
+      unfulfilled, // higher priority
+      fulfilled, // lower priority
       processors);
-    initialize_memory_modules(m_modules, m);
+    initialize_memory_modules(m_modules, m); // reset memory modules' 'free' attribute to 0
   }
 
-  printf("%0.4f\n", avg_cum);
-  
+  printf("%0.4f\n", w_bar); // print out the result of the last w_bar when simulation ended
 }
 
 
@@ -200,8 +217,7 @@ void merge_arrays(
 void uniform(processor processors[], int p, int m) {
   srand(time(NULL)); /* use a new seed to help with randomizing */
   for(int i = 0; i < p; i++) {
-    int s = rand() % m;
-    processors[i].request = s; /* randomly select a memory module and assign  */
+    processors[i].request = rand() % m;
   }
 }
 
